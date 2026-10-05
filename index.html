@@ -46,7 +46,7 @@ button{font:inherit;font-size:.82rem;font-weight:600;padding:6px 12px;border-rad
 button:hover{border-color:var(--ink-3)}
 :focus-visible{outline:2px solid var(--c1);outline-offset:2px}
 .scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:680px}
+table{width:100%;border-collapse:collapse;min-width:760px}
 th{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600;text-align:right;padding:6px 10px;border-bottom:1px solid var(--line)}
 td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:right;font-size:.9rem;white-space:nowrap}
 tr:last-child td{border-bottom:0}
@@ -94,7 +94,7 @@ input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-
       <button id="editBtn" hidden>Edit prices</button>
     </div>
     <div class="scroll"><table>
-      <thead><tr><th>Stock</th><th>Units</th><th>Entry</th><th>Last price</th><th>Value</th><th>P&amp;L</th><th>Return</th></tr></thead>
+      <thead><tr><th>Stock</th><th>Units</th><th>Entry</th><th>Fees</th><th>Last price</th><th>Value</th><th>P&amp;L</th><th>Return</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
   </section>
@@ -115,11 +115,11 @@ input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-
 
 <script>
 const H=[
-  {s:'ARADEL',n:'Aradel Holdings',t:'ARADEL',inv:350000,entry:1570,c:'--c1'},
-  {s:'WEMABANK',n:'Wema Bank',t:'WEMABANK',inv:326700,entry:29.7,c:'--c2'},
-  {s:'ZENITHBANK',n:'Zenith Bank',t:'ZENITHBANK',inv:398400,entry:124.5,c:'--c3'},
-  {s:'MTNN',n:'MTN Nigeria',t:'MTNN',inv:350450,entry:815,c:'--c4'},
-  {s:'DANGREF',n:'Dangote Refinery',t:'IPO @ NGX',inv:262500,entry:525,c:'--c5'}
+  {s:'ARADEL',n:'Aradel Holdings',t:'ARADEL',inv:350000,fee:4138.42,entry:1570,c:'--c1'},
+  {s:'WEMABANK',n:'Wema Bank',t:'WEMABANK',inv:326700,fee:4026.71,entry:29.7,c:'--c2'},
+  {s:'ZENITHBANK',n:'Zenith Bank',t:'ZENITHBANK',inv:398400,fee:5039.79,entry:124.5,c:'--c3'},
+  {s:'MTNN',n:'MTN Nigeria',t:'MTNN',inv:350450,fee:4461,entry:815,c:'--c4'},
+  {s:'DANGREF',n:'Dangote Refinery',t:'IPO @ NGX',inv:262500,fee:0,entry:525,c:'--c5'}
 ].map(h=>({...h,units:h.inv/h.entry}));
 
 const prices={}; let db=null, canEdit=false, editing=false, live=false;
@@ -136,22 +136,22 @@ function calc(){
   return H.map(h=>{
     const p=prices[h.s]; const price=p&&typeof p.price==='number'?p.price:null;
     const value=price==null?null:h.units*price;
-    const pl=value==null?null:value-h.inv;
-    return {...h,price,p,value,pl,ret:pl==null?null:pl/h.inv*100};
+    const pl=value==null?null:value-(h.inv+h.fee);
+    return {...h,price,p,value,pl,ret:pl==null?null:pl/(h.inv+h.fee)*100};
   });
 }
 
 function render(){
   const R=calc(), priced=R.filter(r=>r.value!=null);
-  const cost=priced.reduce((a,r)=>a+r.inv,0), val=priced.reduce((a,r)=>a+r.value,0), pl=val-cost;
-  const totalCost=H.reduce((a,h)=>a+h.inv,0);
+  const cost=priced.reduce((a,r)=>a+r.inv+r.fee,0), val=priced.reduce((a,r)=>a+r.value,0), pl=val-cost;
+  const totalCost=H.reduce((a,h)=>a+h.inv+h.fee,0);
   const stamps=priced.map(r=>r.p.asOf).filter(Boolean).sort();
   $('statusTxt').textContent=priced.length?'Latest quote'+(stamps.length?' · '+when(stamps[stamps.length-1]):''):'Waiting for prices';
   $('status').className='pill'+(priced.length&&live?' live':'');
 
   $('summary').innerHTML=
     `<div><div class="lbl">Portfolio value</div><div class="big num">${priced.length?naira(val,0):'—'}</div></div>`+
-    `<div><div class="lbl">Invested</div><div class="mid num">${naira(totalCost,0)}</div></div>`+
+    `<div><div class="lbl">Cost incl. fees</div><div class="mid num">${naira(totalCost,0)}</div></div>`+
     `<div><div class="lbl">Total P&amp;L</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length?arrow(pl)+signed(pl,0):'—'}</div></div>`+
     `<div><div class="lbl">Return</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length&&cost?pct(pl/cost*100):'—'}</div></div>`;
 
@@ -163,6 +163,7 @@ function render(){
     return `<tr><td class="stock"><b>${esc(r.n)}</b><span>${esc(r.t)}</span></td>`+
       `<td class="num">${r.units.toLocaleString('en-NG',{maximumFractionDigits:2})}</td>`+
       `<td class="num">${naira(r.entry)}</td>`+
+      `<td class="num">${r.fee?naira(r.fee):'—'}</td>`+
       `<td class="num">${last}</td>`+
       `<td class="num">${r.value==null?'—':naira(r.value,0)}</td>`+
       `<td class="num ${r.pl==null?'flat':cls(r.pl)}">${r.pl==null?'—':signed(r.pl,0)}</td>`+
@@ -181,7 +182,7 @@ function render(){
     const m='<div class="empty">Prices will appear here as soon as they are saved to this board.</div>';
     $('alloc').innerHTML=''; $('legend').innerHTML=m; $('pl').innerHTML='';
   }
-  $('foot').textContent='Units are your naira amount divided by entry price. Prices come from NGX quotes captured at the time shown on each row, not from a tick-by-tick feed. A holding with no saved price is left out of the totals.';
+  $('foot').textContent='Units are your naira amount divided by entry price. Cost includes purchase fees, and gain or loss is measured after fees. Prices come from NGX quotes captured at the time shown on each row, not from a tick-by-tick feed. A holding with no saved price is left out of the totals.';
 }
 
 async function savePrice(sym,val){
