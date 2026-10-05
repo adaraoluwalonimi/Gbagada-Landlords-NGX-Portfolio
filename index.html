@@ -1,0 +1,206 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gbagada Landlords NGX Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: summary strip on top, holdings ledger in the middle, allocation and P&L charts below. One column on phones. */
+:root{
+  --bg:#F2F4F1; --surface:#FFFFFF; --ink:#16201B; --ink-2:#4A5750; --ink-3:#74827A; --line:#DDE3DE;
+  --gain:#17724A; --gain-bg:#E3F2EA; --loss:#B23A27; --loss-bg:#F8E7E3; --warn:#8A6310; --warn-bg:#F6EDD6;
+  --c1:#2F4B8A; --c2:#0E7C86; --c3:#B7791F; --c4:#8A4F9E; --c5:#5B6770;
+  --font:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1512; --surface:#171F1A; --ink:#E8EFEA; --ink-2:#AAB8B0; --ink-3:#7D8B83; --line:#27322B;
+  --gain:#5CC590; --gain-bg:#173226; --loss:#F08A78; --loss-bg:#3A1E19; --warn:#E3B95C; --warn-bg:#352B12;
+  --c1:#7C9BE0; --c2:#4FC0CB; --c3:#E0AE57; --c4:#C58BDB; --c5:#98A4AD; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1512; --surface:#171F1A; --ink:#E8EFEA; --ink-2:#AAB8B0; --ink-3:#7D8B83; --line:#27322B;
+  --gain:#5CC590; --gain-bg:#173226; --loss:#F08A78; --loss-bg:#3A1E19; --warn:#E3B95C; --warn-bg:#352B12;
+  --c1:#7C9BE0; --c2:#4FC0CB; --c3:#E0AE57; --c4:#C58BDB; --c5:#98A4AD; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:24px 40px}
+.wrap{max-width:980px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;justify-content:space-between}
+h1{font-size:1.6rem;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+.sub{color:var(--ink-2);font-size:.88rem;margin:4px 0 0}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--warn-bg);color:var(--warn)}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.pill.live{background:var(--gain-bg);color:var(--gain)}
+.summary{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.summary>div{background:var(--surface);padding:16px;min-width:0}
+.lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600}
+.big{font-size:1.7rem;font-weight:600;margin-top:6px;line-height:1.1}
+.mid{font-size:1.15rem;font-weight:500;margin-top:8px}
+.up{color:var(--gain)} .down{color:var(--loss)} .flat{color:var(--ink-2)}
+section{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.sh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+h2{font-size:1rem;margin:0;font-weight:700}
+button{font:inherit;font-size:.82rem;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--ink-3)}
+:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:680px}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600;text-align:right;padding:6px 10px;border-bottom:1px solid var(--line)}
+td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:right;font-size:.9rem;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+th:first-child,td:first-child{text-align:left}
+.stock b{display:block;font-weight:600}
+.stock span{font-size:.76rem;color:var(--ink-3)}
+.src{display:block;font-size:.7rem;color:var(--ink-3);font-family:var(--font)}
+.chg{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.82rem;font-weight:500}
+.chg.up{background:var(--gain-bg)} .chg.down{background:var(--loss-bg)} .chg.flat{background:var(--bg)}
+input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.alloc{display:flex;gap:2px;height:30px;border-radius:6px;overflow:hidden;background:var(--bg)}
+.alloc div{min-width:2px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 16px;margin-top:14px}
+.legend div{display:flex;gap:8px;align-items:baseline;font-size:.86rem;min-width:0}
+.legend em{width:10px;height:10px;border-radius:2px;flex:none;align-self:center}
+.legend span{margin-left:auto;color:var(--ink-2)}
+.pl{display:grid;grid-template-columns:minmax(80px,130px) 1fr minmax(80px,auto);gap:8px 12px;align-items:center}
+.pl .nm{font-size:.86rem;font-weight:600;min-width:0}
+.track{position:relative;height:18px}
+.track:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--ink-3)}
+.bar{position:absolute;top:0;bottom:0;border-radius:3px}
+.bar.up{left:50%;background:var(--gain);border-radius:0 3px 3px 0}
+.bar.down{right:50%;background:var(--loss);border-radius:3px 0 0 3px}
+.pl .v{text-align:right;font-size:.84rem}
+.empty{padding:20px 4px;color:var(--ink-2);font-size:.92rem}
+.foot{font-size:.78rem;color:var(--ink-3);line-height:1.5}
+@media (max-width:720px){.summary{grid-template-columns:1fr 1fr}.summary>div:first-child{grid-column:1/-1}.big{font-size:1.5rem}}
+@media (prefers-reduced-motion:no-preference){.alloc div{transition:flex-grow .4s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Gbagada Landlords NGX Portfolio</h1>
+      <p class="sub">Five NGX holdings, valued in naira against your entry prices.</p>
+    </div>
+    <span id="status" class="pill"><i></i><span id="statusTxt">Waiting for prices</span></span>
+  </header>
+
+  <div class="summary" id="summary"></div>
+
+  <section>
+    <div class="sh">
+      <h2>Holdings</h2>
+      <button id="editBtn" hidden>Edit prices</button>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Stock</th><th>Units</th><th>Entry</th><th>Last price</th><th>Value</th><th>P&amp;L</th><th>Return</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Where the money sits</h2><span class="lbl">Share of current value</span></div>
+    <div class="alloc" id="alloc" role="img" aria-label="Allocation by current value"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Gain or loss per holding</h2><span class="lbl">Return on cost</span></div>
+    <div class="pl" id="pl"></div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const H=[
+  {s:'ARADEL',n:'Aradel Holdings',t:'ARADEL',inv:350000,entry:1570,c:'--c1'},
+  {s:'WEMABANK',n:'Wema Bank',t:'WEMABANK',inv:326700,entry:29.7,c:'--c2'},
+  {s:'ZENITHBANK',n:'Zenith Bank',t:'ZENITHBANK',inv:398400,entry:124.5,c:'--c3'},
+  {s:'MTNN',n:'MTN Nigeria',t:'MTNN',inv:350450,entry:815,c:'--c4'},
+  {s:'DANGREF',n:'Dangote Refinery',t:'IPO @ NGX',inv:262500,entry:525,c:'--c5'}
+].map(h=>({...h,units:h.inv/h.entry}));
+
+const prices={}; let db=null, canEdit=false, editing=false, live=false;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const naira=(n,d=2)=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:d,maximumFractionDigits:d});
+const signed=(n,d=0)=>(n>0?'+':n<0?'−':'')+naira(Math.abs(n),d);
+const pct=n=>(n>0?'+':n<0?'−':'')+Math.abs(n).toFixed(2)+'%';
+const cls=n=>n>0.005?'up':n<-0.005?'down':'flat';
+const arrow=n=>n>0.005?'▲ ':n<-0.005?'▼ ':'';
+const when=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleString(undefined,{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})};
+
+function calc(){
+  return H.map(h=>{
+    const p=prices[h.s]; const price=p&&typeof p.price==='number'?p.price:null;
+    const value=price==null?null:h.units*price;
+    const pl=value==null?null:value-h.inv;
+    return {...h,price,p,value,pl,ret:pl==null?null:pl/h.inv*100};
+  });
+}
+
+function render(){
+  const R=calc(), priced=R.filter(r=>r.value!=null);
+  const cost=priced.reduce((a,r)=>a+r.inv,0), val=priced.reduce((a,r)=>a+r.value,0), pl=val-cost;
+  const totalCost=H.reduce((a,h)=>a+h.inv,0);
+  const stamps=priced.map(r=>r.p.asOf).filter(Boolean).sort();
+  $('statusTxt').textContent=priced.length?'Latest quote'+(stamps.length?' · '+when(stamps[stamps.length-1]):''):'Waiting for prices';
+  $('status').className='pill'+(priced.length&&live?' live':'');
+
+  $('summary').innerHTML=
+    `<div><div class="lbl">Portfolio value</div><div class="big num">${priced.length?naira(val,0):'—'}</div></div>`+
+    `<div><div class="lbl">Invested</div><div class="mid num">${naira(totalCost,0)}</div></div>`+
+    `<div><div class="lbl">Total P&amp;L</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length?arrow(pl)+signed(pl,0):'—'}</div></div>`+
+    `<div><div class="lbl">Return</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length&&cost?pct(pl/cost*100):'—'}</div></div>`;
+
+  if(editing&&document.activeElement&&document.activeElement.classList.contains('pin'))return;
+
+  $('rows').innerHTML=R.map(r=>{
+    const note=r.p&&r.p.note?`<span class="src">${esc(r.p.note)}${r.p.asOf?' · '+esc(when(r.p.asOf)):''}</span>`:(r.p&&r.p.asOf?`<span class="src">${esc(when(r.p.asOf))}</span>`:'');
+    const last=editing?`<input class="pin" id="in-${r.s}" data-s="${r.s}" type="number" step="any" min="0" value="${r.price??''}" aria-label="Price for ${esc(r.n)}">`:(r.price==null?'—':naira(r.price))+note;
+    return `<tr><td class="stock"><b>${esc(r.n)}</b><span>${esc(r.t)}</span></td>`+
+      `<td class="num">${r.units.toLocaleString('en-NG',{maximumFractionDigits:2})}</td>`+
+      `<td class="num">${naira(r.entry)}</td>`+
+      `<td class="num">${last}</td>`+
+      `<td class="num">${r.value==null?'—':naira(r.value,0)}</td>`+
+      `<td class="num ${r.pl==null?'flat':cls(r.pl)}">${r.pl==null?'—':signed(r.pl,0)}</td>`+
+      `<td>${r.ret==null?'—':`<span class="chg num ${cls(r.ret)}">${arrow(r.ret)}${pct(r.ret)}</span>`}</td></tr>`;
+  }).join('');
+
+  if(priced.length){
+    $('alloc').innerHTML=priced.map(r=>`<div title="${esc(r.n)} ${(r.value/val*100).toFixed(1)}%" style="flex:${r.value} 1 0;background:var(${r.c})"></div>`).join('');
+    $('legend').innerHTML=priced.map(r=>`<div><em style="background:var(${r.c})"></em>${esc(r.n)}<span class="num">${(r.value/val*100).toFixed(1)}%</span></div>`).join('');
+    const mx=Math.max(1,...priced.map(r=>Math.abs(r.ret)));
+    $('pl').innerHTML=priced.map(r=>{
+      const w=Math.abs(r.ret)/mx*50;
+      return `<div class="nm">${esc(r.n)}</div><div class="track"><div class="bar ${r.ret>=0?'up':'down'}" style="width:${w}%"></div></div><div class="v num ${cls(r.ret)}">${arrow(r.ret)}${pct(r.ret)}</div>`;
+    }).join('');
+  }else{
+    const m='<div class="empty">Prices will appear here as soon as they are saved to this board.</div>';
+    $('alloc').innerHTML=''; $('legend').innerHTML=m; $('pl').innerHTML='';
+  }
+  $('foot').textContent='Units are your naira amount divided by entry price. Prices come from NGX quotes captured at the time shown on each row, not from a tick-by-tick feed. A holding with no saved price is left out of the totals.';
+}
+
+async function savePrice(sym,val){
+  if(!db||!(val>0))return;
+  const prev=prices[sym]||{};
+  if(prev.price===val)return;
+  try{await db.doc('prices/'+sym).set({price:val,asOf:new Date().toISOString(),note:'Manual update'})}catch(e){}
+}
+
+$('editBtn').addEventListener('click',()=>{editing=!editing;$('editBtn').textContent=editing?'Done':'Edit prices';render()});
+$('rows').addEventListener('change',e=>{const t=e.target;if(t.classList.contains('pin'))savePrice(t.dataset.s,parseFloat(t.value))});
+
+/* Latest quotes. Edit these numbers (and the dates) to update the page. */
+Object.assign(prices,{
+  ARADEL:{price:1530,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
+  WEMABANK:{price:31.35,asOf:'2026-10-05T12:32:00+01:00',note:'Daba Finance, midday'},
+  ZENITHBANK:{price:134.5,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
+  MTNN:{price:840,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
+  DANGREF:{price:525,asOf:'2026-09-14T09:00:00+01:00',note:'IPO price; no trading quote yet'}
+});
+render();
+</script>
