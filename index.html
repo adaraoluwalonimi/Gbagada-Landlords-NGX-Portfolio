@@ -71,6 +71,26 @@ input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-
 .bar.up{left:50%;background:var(--gain);border-radius:0 3px 3px 0}
 .bar.down{right:50%;background:var(--loss);border-radius:3px 0 0 3px}
 .pl .v{text-align:right;font-size:.84rem}
+.cv{display:grid;gap:16px}
+.cvr .nm{font-size:.86rem;font-weight:600;margin-bottom:6px}
+.cvb{display:grid;grid-template-columns:1fr minmax(150px,auto);gap:10px;align-items:center;margin-top:4px}
+.cvb .tr{height:12px;background:var(--bg);border-radius:3px;overflow:hidden}
+.cvb .f{height:100%;border-radius:3px}
+.cvb .t{font-size:.8rem;text-align:right;color:var(--ink-2)}
+.cvb .t b{font-weight:500;color:var(--ink)}
+.chartkey{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:.82rem;color:var(--ink-2)}
+.chartkey span{display:inline-flex;align-items:center;gap:6px}
+.chartkey i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.chartkey u{display:inline-block;width:18px;border-top:2px dashed var(--ink);text-decoration:none}
+.seg{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.seg button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.seg .sp{width:8px}
+.chartbox{position:relative}
+.chead{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;margin-bottom:10px}
+.chead .big{font-size:1.5rem;font-weight:600}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.78rem;box-shadow:0 4px 14px rgba(0,0,0,.14);min-width:160px;z-index:2;line-height:1.5}
+.tip .tr2{display:flex;justify-content:space-between;gap:12px;color:var(--ink-2)}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
 .empty{padding:20px 4px;color:var(--ink-2);font-size:.92rem}
 .foot{font-size:.78rem;color:var(--ink-3);line-height:1.5}
 @media (max-width:720px){.summary{grid-template-columns:1fr 1fr}.summary>div:first-child{grid-column:1/-1}.big{font-size:1.5rem}}
@@ -89,6 +109,14 @@ input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-
   <div class="summary" id="summary"></div>
 
   <section>
+    <div class="sh"><h2>Portfolio chart</h2>
+      <div class="seg" id="cctl"><button data-k="mode" data-v="value" class="on">Value</button><button data-k="mode" data-v="stocks">Each stock</button><span class="sp"></span><button data-k="range" data-v="7">7D</button><button data-k="range" data-v="30">30D</button><button data-k="range" data-v="all" class="on">All</button></div>
+    </div>
+    <div id="chartHead"></div>
+    <div id="chart" class="chartbox"></div>
+  </section>
+
+  <section>
     <div class="sh">
       <h2>Holdings</h2>
       <button id="editBtn" hidden>Edit prices</button>
@@ -97,6 +125,11 @@ input.pin{width:92px;font:inherit;font-family:var(--mono);font-size:.88rem;text-
       <thead><tr><th>Stock</th><th>Units</th><th>Entry</th><th>Fees</th><th>Last price</th><th>Value</th><th>P&amp;L</th><th>Return</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>Cost against value</h2><span class="lbl">Cost includes fees</span></div>
+    <div class="cv" id="cv" role="img" aria-label="Cost and current value for each holding"></div>
   </section>
 
   <section>
@@ -122,7 +155,7 @@ const H=[
   {s:'DANGREF',n:'Dangote Refinery',t:'IPO @ NGX',inv:262500,fee:0,entry:525,c:'--c5'}
 ].map(h=>({...h,units:h.inv/h.entry}));
 
-const prices={}; let db=null, canEdit=false, editing=false, live=false;
+let cMode='value',cRange='all'; const history={}; const prices={}; let db=null, canEdit=false, editing=false, live=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const naira=(n,d=2)=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -141,6 +174,81 @@ function calc(){
   });
 }
 
+function drawChart(){
+  const el=$('chart'), head=$('chartHead'); if(!el||!head)return;
+  let days=Object.values(history).filter(d=>d&&d.date&&d.values).sort((a,b)=>a.date<b.date?-1:1);
+  if(cRange!=='all')days=days.slice(-Number(cRange));
+  if(!days.length){head.innerHTML='';el.innerHTML='<div class="empty">The chart starts after the next price update.</div>';return}
+  const n=days.length,last=days[n-1],prev=n>1?days[n-2]:null,cost=last.cost||0;
+  const W=640,HT=280,L=66,R=16,T=14,B=30,pw=W-L-R,ph=HT-T-B;
+  const X=i=>n===1?L+pw/2:L+pw*i/(n-1);
+  const fK=v=>'₦'+Math.round(v/1000).toLocaleString('en-NG')+'k';
+  const fP=v=>(v>0.05?'+':v<-0.05?'−':'')+Math.abs(v).toFixed(1)+'%';
+  const lab=d=>new Date(d.date+'T12:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'});
+  const ret=(d,h)=>((d.values[h.s]||0)/(h.inv+h.fee)-1)*100;
+  const val=cMode==='value';
+  let vals=[];
+  if(val){days.forEach(d=>vals.push(d.total||0));if(cost)vals.push(cost)}else{H.forEach(h=>days.forEach(d=>vals.push(ret(d,h))));vals.push(0)}
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  const pad=(hi-lo)*0.18||Math.abs(hi)*0.02||1; lo-=pad; hi+=pad;
+  const Y=v=>T+ph-(v-lo)/(hi-lo)*ph;
+  const fY=val?fK:fP;
+  let g='';
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,yy=Y(v).toFixed(1);g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(+yy+4).toFixed(1)}" text-anchor="end" font-size="11" style="fill:var(--ink-3);font-family:var(--mono)">${fY(v)}</text>`}
+  const xi=[...new Set([0,Math.floor((n-1)/2),n-1])];
+  xi.forEach(i=>{g+=`<text x="${X(i).toFixed(1)}" y="${HT-10}" text-anchor="${n===1?'middle':i===0?'start':i===n-1?'end':'middle'}" font-size="11" style="fill:var(--ink-3)">${esc(lab(days[i]))}</text>`});
+  let body='',legend='',hdr='',dots='';
+  if(val){
+    const gain=last.total-cost, up=gain>=0, col=up?'var(--gain)':'var(--loss)';
+    const pts=days.map((d,i)=>X(i).toFixed(1)+','+Y(d.total||0).toFixed(1));
+    if(cost)body+=`<line x1="${L}" x2="${W-R}" y1="${Y(cost).toFixed(1)}" y2="${Y(cost).toFixed(1)}" style="stroke:var(--ink-3)" stroke-width="1.2" stroke-dasharray="5 4"/><text x="${W-R}" y="${(Y(cost)-6).toFixed(1)}" text-anchor="end" font-size="11" style="fill:var(--ink-3)">Cost ${fK(cost)}</text>`;
+    if(n>1){body+=`<polygon points="${X(0).toFixed(1)},${(T+ph)} ${pts.join(' ')} ${X(n-1).toFixed(1)},${(T+ph)}" style="fill:${col}" fill-opacity="0.13"/><polyline points="${pts.join(' ')}" fill="none" style="stroke:${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`}
+    body+=`<circle cx="${X(n-1).toFixed(1)}" cy="${Y(last.total).toFixed(1)}" r="4.5" style="fill:${col};stroke:var(--surface)" stroke-width="2"/>`;
+    dots=`<circle id="xd0" r="4.5" style="fill:${col};stroke:var(--surface)" stroke-width="2"/>`;
+    const dchg=prev?last.total-(prev.total||0):null;
+    hdr=`<div class="chead"><span class="big num">${naira(last.total,0)}</span><span class="num ${cls(gain)}">${arrow(gain)}${signed(gain,0)} (${pct(cost?gain/cost*100:0)})</span><span class="lbl">vs cost incl. fees</span>${dchg!=null?`<span class="num ${cls(dchg)}">${arrow(dchg)}${signed(dchg,0)} since ${esc(lab(prev))}</span>`:''}</div>`;
+    legend=n===1?'<div class="chartkey"><span>One point so far. The line grows by a day after every price update.</span></div>':'';
+  }else{
+    H.forEach(h=>{
+      const pts=days.map((d,i)=>X(i).toFixed(1)+','+Y(ret(d,h)).toFixed(1));
+      if(n>1)body+=`<polyline points="${pts.join(' ')}" fill="none" style="stroke:var(${h.c})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      body+=`<circle cx="${X(n-1).toFixed(1)}" cy="${Y(ret(last,h)).toFixed(1)}" r="4" style="fill:var(${h.c});stroke:var(--surface)" stroke-width="2"/>`;
+    });
+    body=`<line x1="${L}" x2="${W-R}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" style="stroke:var(--ink-3)" stroke-width="1.2"/>`+body;
+    dots=H.map((h,k)=>`<circle id="xd${k}" r="4" style="fill:var(${h.c});stroke:var(--surface)" stroke-width="2"/>`).join('');
+    hdr=`<div class="chead"><span class="lbl">Return on cost for each stock, after fees</span></div>`;
+    legend='<div class="chartkey">'+H.map(h=>{const r=ret(last,h);return `<span><i style="background:var(${h.c})"></i>${esc(h.n)} <b class="num ${cls(r)}">${fP(r)}</b></span>`}).join('')+'</div>';
+  }
+  head.innerHTML=hdr;
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${HT}" width="100%" role="img" aria-label="Portfolio chart" style="display:block;max-width:100%;height:auto;touch-action:pan-y">${g}${body}<g id="xh" style="display:none"><line id="xl" y1="${T}" y2="${T+ph}" style="stroke:var(--ink-3)" stroke-width="1"/>${dots}</g><rect id="hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent"/></svg><div class="tip" id="tip" style="display:none"></div>${legend}`;
+  const svg=el.querySelector&&el.querySelector('svg'); if(!svg)return;
+  const tip=el.querySelector('#tip'), xh=svg.querySelector('#xh'), xl=svg.querySelector('#xl');
+  const move=e=>{
+    const t=e.touches?e.touches[0]:e, r=svg.getBoundingClientRect();
+    const xr=(t.clientX-r.left)/r.width*W;
+    let i=n===1?0:Math.round((xr-L)/pw*(n-1)); i=Math.max(0,Math.min(n-1,i));
+    const d=days[i], cx=X(i);
+    xh.style.display=''; xl.setAttribute('x1',cx); xl.setAttribute('x2',cx);
+    let html=`<b>${esc(lab(d))}</b>`;
+    if(val){
+      const c=svg.querySelector('#xd0'); c.setAttribute('cx',cx); c.setAttribute('cy',Y(d.total||0));
+      const gn=(d.total||0)-(d.cost||0);
+      html+=`<div class="num">${naira(d.total||0,0)}</div><div class="num ${cls(gn)}">${arrow(gn)}${signed(gn,0)} vs cost</div>`;
+      H.forEach(h=>{html+=`<div class="tr2"><span>${esc(h.n)}</span><span class="num">${naira(d.values[h.s]||0,0)}</span></div>`});
+    }else{
+      H.forEach((h,k)=>{const rr=ret(d,h),c=svg.querySelector('#xd'+k);c.setAttribute('cx',cx);c.setAttribute('cy',Y(rr));
+        html+=`<div class="tr2"><span><i style="background:var(${h.c})"></i>${esc(h.n)}</span><span class="num ${cls(rr)}">${fP(rr)}</span></div>`});
+    }
+    tip.innerHTML=html; tip.style.display='';
+    const px=cx/W*r.width, tw=tip.offsetWidth||170;
+    tip.style.left=Math.max(0,Math.min(r.width-tw,px+14>r.width-tw?px-tw-14:px+14))+'px';
+    tip.style.top='8px';
+  };
+  const hide=()=>{xh.style.display='none';tip.style.display='none'};
+  svg.addEventListener('mousemove',move); svg.addEventListener('touchstart',move,{passive:true}); svg.addEventListener('touchmove',move,{passive:true});
+  svg.addEventListener('mouseleave',hide); svg.addEventListener('touchend',hide);
+}
+
 function render(){
   const R=calc(), priced=R.filter(r=>r.value!=null);
   const cost=priced.reduce((a,r)=>a+r.inv+r.fee,0), val=priced.reduce((a,r)=>a+r.value,0), pl=val-cost;
@@ -155,6 +263,7 @@ function render(){
     `<div><div class="lbl">Total P&amp;L</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length?arrow(pl)+signed(pl,0):'—'}</div></div>`+
     `<div><div class="lbl">Return</div><div class="mid num ${priced.length?cls(pl):'flat'}">${priced.length&&cost?pct(pl/cost*100):'—'}</div></div>`;
 
+  drawChart();
   if(editing&&document.activeElement&&document.activeElement.classList.contains('pin'))return;
 
   $('rows').innerHTML=R.map(r=>{
@@ -173,6 +282,10 @@ function render(){
   if(priced.length){
     $('alloc').innerHTML=priced.map(r=>`<div title="${esc(r.n)} ${(r.value/val*100).toFixed(1)}%" style="flex:${r.value} 1 0;background:var(${r.c})"></div>`).join('');
     $('legend').innerHTML=priced.map(r=>`<div><em style="background:var(${r.c})"></em>${esc(r.n)}<span class="num">${(r.value/val*100).toFixed(1)}%</span></div>`).join('');
+    const mxv=Math.max(...priced.map(r=>Math.max(r.inv+r.fee,r.value)));
+    $('cv').innerHTML=priced.map(r=>{const c=r.inv+r.fee;return `<div class="cvr"><div class="nm">${esc(r.n)}</div>`+
+      `<div class="cvb"><div class="tr"><div class="f" style="width:${c/mxv*100}%;background:var(--c5)"></div></div><div class="t num">Cost <b>${naira(c,0)}</b></div></div>`+
+      `<div class="cvb"><div class="tr"><div class="f" style="width:${r.value/mxv*100}%;background:var(--c1)"></div></div><div class="t num">Value <b>${naira(r.value,0)}</b></div></div></div>`}).join('');
     const mx=Math.max(1,...priced.map(r=>Math.abs(r.ret)));
     $('pl').innerHTML=priced.map(r=>{
       const w=Math.abs(r.ret)/mx*50;
@@ -180,7 +293,7 @@ function render(){
     }).join('');
   }else{
     const m='<div class="empty">Prices will appear here as soon as they are saved to this board.</div>';
-    $('alloc').innerHTML=''; $('legend').innerHTML=m; $('pl').innerHTML='';
+    $('alloc').innerHTML=''; $('legend').innerHTML=m; $('pl').innerHTML=''; $('cv').innerHTML=m;
   }
   $('foot').textContent='Units are your naira amount divided by entry price. Cost includes purchase fees, and gain or loss is measured after fees. Prices come from NGX quotes captured at the time shown on each row, not from a tick-by-tick feed. A holding with no saved price is left out of the totals.';
 }
@@ -192,16 +305,19 @@ async function savePrice(sym,val){
   try{await db.doc('prices/'+sym).set({price:val,asOf:new Date().toISOString(),note:'Manual update'})}catch(e){}
 }
 
+$('cctl').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(!b)return;if(b.dataset.k==='mode')cMode=b.dataset.v;else cRange=b.dataset.v;[...$('cctl').querySelectorAll('button')].forEach(x=>x.classList.toggle('on',(x.dataset.k==='mode'?cMode:cRange)===x.dataset.v));drawChart()});
 $('editBtn').addEventListener('click',()=>{editing=!editing;$('editBtn').textContent=editing?'Done':'Edit prices';render()});
 $('rows').addEventListener('change',e=>{const t=e.target;if(t.classList.contains('pin'))savePrice(t.dataset.s,parseFloat(t.value))});
 
 /* Latest quotes. Edit these numbers (and the dates) to update the page. */
 Object.assign(prices,{
-  ARADEL:{price:1530,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
+  ARADEL:{price:1530,asOf:'2026-10-05T15:45:00+01:00',note:'Daba Finance close'},
   WEMABANK:{price:31.35,asOf:'2026-10-05T12:32:00+01:00',note:'Daba Finance, midday'},
-  ZENITHBANK:{price:134.5,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
-  MTNN:{price:840,asOf:'2026-10-02T15:30:00+01:00',note:'Daba Finance close'},
+  ZENITHBANK:{price:135.4,asOf:'2026-10-05T15:45:00+01:00',note:'Daba Finance close'},
+  MTNN:{price:842,asOf:'2026-10-06T11:30:00+01:00',note:'Daba Finance, midday'},
   DANGREF:{price:525,asOf:'2026-09-14T09:00:00+01:00',note:'IPO price; no trading quote yet'}
 });
+/* One entry per day for the chart. Add a new line each day. */
+history['2026-10-05']={date:'2026-10-05',values:{ARADEL:341082.8,WEMABANK:344850,ZENITHBANK:433280,MTNN:362060,DANGREF:262500},total:1743772.8,cost:1705715.92};
 render();
 </script>
