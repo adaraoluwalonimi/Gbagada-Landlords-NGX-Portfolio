@@ -311,13 +311,14 @@ $('rows').addEventListener('change',e=>{const t=e.target;if(t.classList.contains
 
 /* Latest quotes. Edit these numbers (and the dates) to update the page. */
 Object.assign(prices,{
-  ARADEL:{price:1530,asOf:'2026-10-05T15:45:00+01:00',note:'Daba Finance close'},
-  WEMABANK:{price:31.35,asOf:'2026-10-05T12:32:00+01:00',note:'Daba Finance, midday'},
-  ZENITHBANK:{price:135.4,asOf:'2026-10-05T15:45:00+01:00',note:'Daba Finance close'},
+  ARADEL:{price:1530,asOf:'2026-10-07T09:21:00+01:00',note:'Daba Finance, morning'},
+  WEMABANK:{price:31,asOf:'2026-10-07T10:43:00+01:00',note:'Daba Finance, morning'},
+  ZENITHBANK:{price:135.5,asOf:'2026-10-06T15:45:00+01:00',note:'Daba Finance close'},
   MTNN:{price:842,asOf:'2026-10-06T11:30:00+01:00',note:'Daba Finance, midday'},
   DANGREF:{price:525,asOf:'2026-09-14T09:00:00+01:00',note:'IPO price; no trading quote yet'}
 });
 /* One entry per day for the chart. Add a new line each day. */
 history['2026-10-05']={date:'2026-10-05',values:{ARADEL:341082.8,WEMABANK:344850,ZENITHBANK:433280,MTNN:362060,DANGREF:262500},total:1743772.8,cost:1705715.92};
+history['2026-10-07']={date:'2026-10-07',values:{ARADEL:341082.802539,WEMABANK:341000,ZENITHBANK:433600.0,MTNN:362060,DANGREF:262500},total:1740242.802539,cost:1705715.92};
 render();
 </script>
